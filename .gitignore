@@ -3,3 +3,6 @@ install/
 log/
 src/swift_pico/wd_executables/planner_server
 src/swift_pico/wd_executables/warehouse_server
+.vscode/
+task_1b/
+debug.txt
