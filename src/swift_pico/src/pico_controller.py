@@ -25,7 +25,6 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 import time 
-import math
 
 
 class Swift_Pico(Node):
@@ -52,14 +51,10 @@ class Swift_Pico(Node):
         #initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
         #after tuning and computing corresponding PID parameters, change the parameters
 
-        self.Kp = [14, 14, 2]
-        self.Ki = [0, 0, 0]
-        self.Kd = [0, 0, 0]  # [0.5, 0.5, 0.7]
-
+        self.Kp_1 = [100, 150, 7]
+        self.Ki_1 = [0, 0, 0]
+        self.Kd_1 = [0, 0, 0]
         #-----------------------Add other required variables for pid here ----------------------------------------------
-
-        self.start_time=time.time()
-        self.t=0
 
         self.error = np.array([0.0, 0.0, 0.0])
         self.error_prev = np.array([0.0, 0.0, 0.0])
@@ -79,21 +74,9 @@ class Swift_Pico(Node):
             [2, 2, 19]
         ) 
 
-        self.Kp_d = [0, 0, 0]
-        self.Ki_d = [0, 0, 0]
-        self.Kd_d = [0, 0, 0]
-
-        self.file_path = "debug.txt"
-        # file_path_pos = "~/debug_pos.txt"
-
-        with open(self.file_path, "w") as file:
-            file.write("rpt                     vel_setpoint                    vel                   error\n") 
-
-        # with open(file_path_pos, "w") as file:
-        #     file.write("") 
-
-
-
+        self.Kp = [1, 1, 3]
+        self.Ki = [0, 0, 0]
+        self.Kd = [0, 0, 2]
 
         
         
@@ -127,7 +110,6 @@ class Swift_Pico(Node):
         # self.create_subscription(PIDTune, "/throttle_pid", self.altitude_set_pid, 1)
         # self.create_subscription(PIDTune, "/pitch_pid", self.pitch_set_pid, 1)
         # self.create_subscription(PIDTune, "/roll_pid", self.roll_set_pid, 1)
-        self.arm()  # ARMING THE DRONE
         self.create_subscription(PoseArray, '/whycon/poses', self.whycon_callback, 1)
         # self.command_pub_vel = self.create_publisher(PoseArray, '/whycon/poses', 10)
 
@@ -144,14 +126,14 @@ class Swift_Pico(Node):
         #------------------------Add other ROS Subscribers here-----------------------------------------------------
     
 
-        
+        self.arm()  # ARMING THE DRONE
 
         # Creating a timer to run the pid function periodically, refer ROS 2 tutorials on how to create a publisher subscriber(Python)
 
     def updateController(self):
         self.error_prev=self.error
         self.error=(self.setpoint - self.drone_position) #* np.array([-1, 1, 1])
-        self.errsum+=100*self.error * self.dt*2**(-(self.error/0.4)**10)
+        self.errsum+=self.error * self.dt
 
 
         self.prev_vel_error = self.vel_error
@@ -160,7 +142,7 @@ class Swift_Pico(Node):
         # print("update for this pid iteration")
     def compute(self, kp=-8, ki=0, kd=0):
         
-        K_1 = np.array([self.Kp_d, self.Ki_d, self.Kd_d]).T
+        K_1 = np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T
 
         error = self.error  # replace with actual value
         sum_error = (self.errsum)   # replace with actual value
@@ -168,12 +150,9 @@ class Swift_Pico(Node):
 
         error_vector = (np.array([error, sum_error, z])).T
 
-        print("error pos vector :", error_vector[2][0],error_vector[2][1],error_vector[2][2])
+        print("error pos vector :", error_vector)
 
-        rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
-
-        self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-3/error[2]**2)])
-        
+        self.vel_setpoint = np.sum(K_1 * error_vector, axis=1)
 
 
         vel_K = np.array([self.Kp, self.Ki, self.Kd]).T
@@ -207,27 +186,17 @@ class Swift_Pico(Node):
         # Set the roll, pitch, throttle values and apply limits
 
         rpt = np.clip(result_with_offset, 1000, 2000)
-
         # print("rpt",rpt)
         # print(rpt)
 
         msg = SwiftMsgs()
-        msg.rc_roll =np.int(rpt[0]+rpt_pos[0])
-        msg.rc_pitch =np.int(rpt[1]+rpt_pos[1])
-        msg.rc_throttle =np.int(rpt[2]+rpt_pos[2]) 
-        msg.rc_yaw = 1500
+        msg.rc_roll =np.int(rpt[0])
+        msg.rc_pitch =np.int(rpt[1])
+        msg.rc_throttle =np.int(rpt[2]) 
         # print("throttle :" ,msg.rc_throttle )
         #print(rpt)
 
         self.command_pub.publish(msg)
-
-        data = str(rpt)+"\t"+str(self.vel_setpoint)+"\t"+str(self.curr_v)+"\t"+str(self.error)
-        with open(self.file_path, "a") as file:
-            if self.error[0] >= 0 and self.error[1] >= 0 and self.error[2] >= 0:
-                file.write(data+"\n")
-            else:
-                b=(abs(self.error) >= [0.4,0.4,0.4]).astype(int)
-                file.write(data+"\t"+str(b)+"\n")
 
     def disarm(self):
         self.cmd.rc_roll = 1000
@@ -243,10 +212,9 @@ class Swift_Pico(Node):
         self.cmd.rc_roll = 1500
         self.cmd.rc_yaw = 1500
         self.cmd.rc_pitch = 1500
-        self.cmd.rc_throttle = 1536
+        self.cmd.rc_throttle = 1500
         self.cmd.rc_aux4 = 2000
         self.command_pub.publish(self.cmd)  # Publishing /drone_command
-        print("armed")
 
 
     # Whycon callback function
@@ -254,7 +222,6 @@ class Swift_Pico(Node):
     def whycon_callback(self, msg):
         self.prev_time = self.current_time
         self.current_time = time.time()
-        self.t=self.current_time-self.start_time
         self.dt = self.current_time - self.prev_time
         
 
@@ -269,17 +236,15 @@ class Swift_Pico(Node):
             self.curr_v = (self.drone_position - self.prev_drone_position) *(1/self.dt)
 
 
-            # self.vel_setpoint=(self.setpoint-self.drone_position)/5
+            #self.vel_setpoint=(self.setpoint-self.drone_position)/5
 
 
             #print("time_ is ",self.dt)
 
-            # print("vel_setpoint",self.vel_setpoint)
-
             self.vel = Pose()
-            self.vel.position.x = float(self.vel_setpoint[0])
-            self.vel.position.y = float(self.vel_setpoint[1])
-            self.vel.position.z = float(self.vel_setpoint[2])
+            self.vel.position.x = self.curr_v[0]
+            self.vel.position.y = self.curr_v[1]
+            self.vel.position.z = self.curr_v[2]
 
 
 
@@ -358,7 +323,6 @@ class Swift_Pico(Node):
 
 
 def main(args=None):
-
     rclpy.init(args=args)
     swift_pico = Swift_Pico()
     rclpy.spin(swift_pico)
