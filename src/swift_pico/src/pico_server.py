@@ -37,15 +37,11 @@ class WayPointServer(Node):
         self.duration = 0
 
 
-        self.drone_position =np.array([0.0, 0.0, 0.0, 0.0])
-        self.setpoint = np.array([0, 0, 27, 0])
+        self.drone_position =np.array([0.0, 0.0, 0.0,0.0])
+        self.setpoint = np.array([0, 0, 27,0.0])
         self.dtime = 0
 
-        self.cmd = SwiftMsgs()
-        self.cmd.rc_roll = 1500
-        self.cmd.rc_pitch = 1500
-        self.cmd.rc_yaw = 1500
-        self.cmd.rc_throttle = 1500
+   
 
         #Kp, Ki and Kd values here
         
@@ -88,9 +84,9 @@ class WayPointServer(Node):
 
         self.vel_setpoint=np.array([0.0, 0.0, 0.0,0.0])
 
-        self.Kp = [1, 1, 3,0]
-        self.Ki = [0, 0, 0,0]
-        self.Kd = [0, 0, 2,0]
+        # self.Kp = [1, 1, 3,0]
+        # self.Ki = [0, 0, 0,0]
+        # self.Kd = [0, 0, 2,0]
 
         self.current_time = time.time()
         self.prev_time = time.time()
@@ -244,10 +240,15 @@ class WayPointServer(Node):
         z = (self.error - self.error_prev) / self.dt 
 
         error_vector = (np.array([error, sum_error, z])).T
+        print("setpoint",self.setpoint)
 
         print("error pos vector :", error_vector)
 
-        self.vel_setpoint = np.sum(K_1 * error_vector, axis=1)
+
+        rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
+
+        self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2)])
+
 
 
         vel_K = np.array([self.Kp, self.Ki, self.Kd]).T
@@ -273,7 +274,7 @@ class WayPointServer(Node):
         result = np.sum(vel_K * vel_error_vector, axis=1)
 
         # Add the constant vector [1500, 1500, 1500]
-        constant_vector = np.array([1500, 1500, 1532,0])
+        constant_vector = np.array([1500, 1500, 1532])
 
         result_with_offset = result + constant_vector
         #print("resiltndjndjn",result_with_offset)
@@ -285,9 +286,12 @@ class WayPointServer(Node):
         # print(rpt)
 
         msg = SwiftMsgs()
-        msg.rc_roll =np.int(rpt[0])
-        msg.rc_pitch =np.int(rpt[1])
-        msg.rc_throttle =np.int(rpt[2]) 
+
+        msg.rc_roll =int(rpt[0]+rpt_pos[0])
+        msg.rc_pitch =int(rpt[1]+rpt_pos[1])
+        msg.rc_throttle =int(rpt[2]+rpt_pos[2]) 
+        msg.rc_yaw = 1500
+
         # print("throttle :" ,msg.rc_throttle )
         #print(rpt)
 
@@ -331,9 +335,10 @@ class WayPointServer(Node):
     def execute_callback(self, goal_handle):
 
         self.get_logger().info('Executing goal...')
-        self.setpoint[0] = goal_handle.request.waypoint.position.x
-        self.setpoint[1] = goal_handle.request.waypoint.position.y
-        self.setpoint[2] = goal_handle.request.waypoint.position.z
+        self.setpoint=Pose()
+        self.setpoint.position.x = goal_handle.request.waypoint.position.x
+        self.setpoint.position.y = goal_handle.request.waypoint.position.y
+        self.setpoint.position.z = goal_handle.request.waypoint.position.z
         self.get_logger().info(f'New Waypoint Set: {self.setpoint}')
         self.max_time_inside_sphere = 0
         self.point_in_sphere_start_time = None
@@ -345,7 +350,7 @@ class WayPointServer(Node):
         #--------The script given below checks whether you are hovering at each of the waypoints(goals) for max of 3s---------#
         # This will help you to analyse the drone behaviour and help you to tune the PID better.
         feedback_msg = NavToWaypoint.Feedback()
-        feedback_msg.current_waypoint = self.setpoint
+        feedback_msg.current_waypoint.pose= self.setpoint
         while True:
             feedback_msg.current_waypoint.pose.position.x = self.drone_position[0]
             feedback_msg.current_waypoint.pose.position.y = self.drone_position[1]

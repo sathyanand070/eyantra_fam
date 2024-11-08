@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseArray
 from waypoint_navigation.srv import GetWaypoints
 
 class WayPoints(Node):
@@ -12,20 +12,20 @@ class WayPoints(Node):
         self.srv = self.create_service(GetWaypoints, 'waypoints', self.waypoint_callback)
         self.waypoints = [[2.0, 2.0, 27.0], [2.0, -2.0, 27.0], [-2.0, -2.0, 27.0], [-2.0, 2.0, 27.0], [1.0, 1.0, 27.0]]
 
-    
     def waypoint_callback(self, request, response):
-
-        if request.get_waypoints == True :
+        response = GetWaypoints.Response()  # Ensure response is of the correct type
+        if request.get_waypoints:
+            # Initialize response.waypoints as a PoseArray
+            response.waypoints = PoseArray()
             response.waypoints.poses = [Pose() for _ in range(len(self.waypoints))]
             for i in range(len(self.waypoints)):
                 response.waypoints.poses[i].position.x = self.waypoints[i][0]
                 response.waypoints.poses[i].position.y = self.waypoints[i][1]
                 response.waypoints.poses[i].position.z = self.waypoints[i][2]
             self.get_logger().info("Incoming request for Waypoints")
-            return response
-
         else:
             self.get_logger().info("Request rejected")
+        return response  # Ensure response is returned as GetWaypoints.Response
 
 def main():
     rclpy.init()
@@ -41,6 +41,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-        
-
-        

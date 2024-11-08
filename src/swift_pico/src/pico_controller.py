@@ -77,8 +77,8 @@ class Swift_Pico(Node):
         ) 
 
 
-        self.s = [[2, -2, 27],[-2, -2, 27],[-2,2,27],[1, 1, 27]]
-        self.i=1
+        # self.s = [[2, -2, 27],[-2, -2, 27],[-2,2,27],[1, 1, 27]]
+        # self.i=1
 
         self.Kp_d = [0, 0, 0]
         self.Ki_d = [0, 0, 0]
@@ -250,11 +250,11 @@ class Swift_Pico(Node):
         self.prev_time = self.current_time
         self.current_time = time.time()
         self.dt = self.current_time - self.prev_time
-        if self.t>self.t_nig:
+        # if self.t>self.t_nig:
         
-            self.setpoint=self.s[self.i]
-            self.t_nig += 30
-            self.i+=1
+        #     self.setpoint=self.s[self.i]
+        #     self.t_nig += 30
+        #     self.i+=1
 
         if self.dt >= 0.07 :  
             self.prev_drone_position = np.copy(self.drone_position)

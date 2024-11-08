@@ -30,6 +30,7 @@ class WayPointClient(Node):
 
         #create a request object for GetWaypoints service.
         self.req = GetWaypoints.Request()
+        self.req.get_waypoints=True
 
     
     ###action client functions
