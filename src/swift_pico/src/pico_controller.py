@@ -38,7 +38,7 @@ class Swift_Pico(Node):
         self.dt = 0 
 
         # [x_setpoint, y_setpoint, z_setpoint]
-        self.setpoint = np.array([2, 2, 19])  # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
+        # whycon marker at the position of the dummy given in the scene. Make the whycon marker associated with position_to_hold dummy renderable and make changes accordingly
         # Declaring a cmd of message type swift_msgs and initializing values
         self.cmd = SwiftMsgs()
         self.cmd.rc_roll = 1500
@@ -52,7 +52,7 @@ class Swift_Pico(Node):
         #initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
         #after tuning and computing corresponding PID parameters, change the parameters
 
-        self.Kp = [14, 14, 2]
+        self.Kp = [14, 14, 15] #50 for z=16
         self.Ki = [0, 0, 0]
         self.Kd = [0, 0, 0]  # [0.5, 0.5, 0.7]
 
@@ -76,8 +76,11 @@ class Swift_Pico(Node):
         self.vel_setpoint=np.array([0.0, 0.0, 0.0])
 
         self.setpoint = np.array(
-            [2, 2, 19]
+            [2, 2, 27]
         ) 
+
+        self.s = [[2, -2, 27],[-2, -2, 27],[-2,2,27],[1, 1, 27]]
+        self.i=1
 
         self.Kp_d = [0, 0, 0]
         self.Ki_d = [0, 0, 0]
@@ -129,6 +132,7 @@ class Swift_Pico(Node):
         # self.create_subscription(PIDTune, "/roll_pid", self.roll_set_pid, 1)
         self.arm()  # ARMING THE DRONE
         self.create_subscription(PoseArray, '/whycon/poses', self.whycon_callback, 1)
+        self.t_nig = 30
         # self.command_pub_vel = self.create_publisher(PoseArray, '/whycon/poses', 10)
 
 
@@ -150,8 +154,8 @@ class Swift_Pico(Node):
 
     def updateController(self):
         self.error_prev=self.error
-        self.error=(self.setpoint - self.drone_position) #* np.array([-1, 1, 1])
-        self.errsum+=100*self.error * self.dt*2**(-(self.error/0.4)**10)
+        self.error=(self.setpoint - self.drone_position) +np.array([0,0,0.6])#* np.array([-1, 1, 1])
+        self.errsum+=100*self.error * self.dt*2**(-(self.error/1)**10)
 
 
         self.prev_vel_error = self.vel_error
@@ -167,12 +171,13 @@ class Swift_Pico(Node):
         z = (self.error - self.error_prev) / self.dt 
 
         error_vector = (np.array([error, sum_error, z])).T
+        print("setpoint",self.setpoint)
 
         print("error pos vector :", error_vector[2][0],error_vector[2][1],error_vector[2][2])
 
         rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
 
-        self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-3/error[2]**2)])
+        self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2)])
         
 
 
@@ -212,9 +217,9 @@ class Swift_Pico(Node):
         # print(rpt)
 
         msg = SwiftMsgs()
-        msg.rc_roll =np.int(rpt[0]+rpt_pos[0])
-        msg.rc_pitch =np.int(rpt[1]+rpt_pos[1])
-        msg.rc_throttle =np.int(rpt[2]+rpt_pos[2]) 
+        msg.rc_roll =int(rpt[0]+rpt_pos[0])
+        msg.rc_pitch =int(rpt[1]+rpt_pos[1])
+        msg.rc_throttle =int(rpt[2]+rpt_pos[2]) 
         msg.rc_yaw = 1500
         # print("throttle :" ,msg.rc_throttle )
         #print(rpt)
@@ -256,7 +261,11 @@ class Swift_Pico(Node):
         self.current_time = time.time()
         self.t=self.current_time-self.start_time
         self.dt = self.current_time - self.prev_time
+        if self.t>self.t_nig:
         
+            self.setpoint=self.s[self.i]
+            self.t_nig += 30
+            self.i+=1
 
         if self.dt >= 0.07 :  
             self.prev_drone_position = np.copy(self.drone_position)
