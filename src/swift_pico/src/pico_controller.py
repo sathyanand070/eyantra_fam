@@ -75,7 +75,7 @@ class Swift_Pico(Node):
         self.vel_setpoint=np.array([0.0, 0.0, 0.0])
 
         self.setpoint = np.array(
-            [2, 2, 27]
+            [2, 2, 20]
         ) 
 
 
@@ -162,6 +162,8 @@ class Swift_Pico(Node):
         self.vel_errsum += self.vel_error*self.dt
         # print("update for this pid iteration")
     def compute(self, kp=-8, ki=0, kd=0):
+
+
         
         K_1 = np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T
 
@@ -172,12 +174,15 @@ class Swift_Pico(Node):
         error_vector = (np.array([error, sum_error, z])).T
         print("setpoint",self.setpoint)
 
-        print("error pos vector :", error_vector)
+        #print("error pos vector :", error_vector)
 
 
         rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
 
         self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2)])
+
+        print("vel_setpoitn: ", self.vel_setpoint[2])
+
 
 
 
@@ -208,7 +213,7 @@ class Swift_Pico(Node):
 
         result_with_offset = result + constant_vector
         #print("resiltndjndjn",result_with_offset)
-
+        result_with_offset[2]= constant_vector[2]
         # Set the roll, pitch, throttle values and apply limits
 
         rpt = np.clip(result_with_offset, 1000, 2000)
@@ -222,7 +227,7 @@ class Swift_Pico(Node):
         msg.rc_throttle =int(rpt[2]+rpt_pos[2]) 
         msg.rc_yaw = 1500
 
-        # print("throttle :" ,msg.rc_throttle )
+        print("throttle :" ,msg.rc_throttle )
         #print(rpt)
 
         self.command_pub.publish(msg)
@@ -262,6 +267,7 @@ class Swift_Pico(Node):
             self.i+=1
 
         if self.dt >= 0.07 :  
+            print("time : ", self.dt)
             self.prev_drone_position = np.copy(self.drone_position)
 
             self.drone_position[0] = msg.poses[0].position.x 

@@ -37,8 +37,8 @@ class WayPointServer(Node):
         self.duration = 0
 
 
-        self.drone_position =np.array([0.0, 0.0, 0.0,0.0])
-        self.setpoint = np.array([0, 0, 27,0.0])
+        self.drone_position =np.array([0.0, 0.0, 0.0])
+        self.setpoint = 0
         self.dtime = 0
 
    
@@ -65,24 +65,30 @@ class WayPointServer(Node):
         #initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
         #after tuning and computing corresponding PID parameters, change the parameters
 
-        self.Kp_1 = [100, 150, 7,0]
-        self.Ki_1 = [0, 0, 0,0]
-        self.Kd_1 = [0, 0, 0,0]
+        self.Kp = [14, 14, 15]
+        self.Ki = [0, 0, 0]
+        self.Kd = [0, 0, 0]
+
+
+        self.Kp_1 = [0, 0, 0]
+        self.Ki_1 = [0, 0, 0]
+        self.Kd_1 = [0, 0, 0]
+
         #-----------------------Add other required variables for pid here ----------------------------------------------
 
-        self.error = np.array([0.0, 0.0, 0.0, 0.0])
-        self.error_prev = np.array([0.0, 0.0, 0.0, 0.0])
-        self.errsum = np.array([0.0, 0.0, 0.0,0.0])
+        self.error = np.array([0.0, 0.0, 0.0])
+        self.error_prev = np.array([0.0, 0.0, 0.0])
+        self.errsum = np.array([0.0, 0.0, 0.0])
         self.current_rpt = [self.cmd.rc_roll, self.cmd.rc_pitch, self.cmd.rc_throttle]
 
-        self.curr_v = np.array([0,0,0,0])
-        self.prev_v = np.array([0,0,0,0])
+        self.curr_v = np.array([0,0,0])
+        self.prev_v = np.array([0,0,0])
 
-        self.vel_error=np.array([0.0, 0.0, 0.0,0.0])
-        self.prev_vel_error=np.array([0.0, 0.0, 0.0,0.0])
-        self.vel_errsum=np.array([0.0, 0.0, 0.0,0.0])
+        self.vel_error=np.array([0.0, 0.0, 0.0])
+        self.prev_vel_error=np.array([0.0, 0.0, 0.0])
+        self.vel_errsum=np.array([0.0, 0.0, 0.0])
 
-        self.vel_setpoint=np.array([0.0, 0.0, 0.0,0.0])
+        self.vel_setpoint=np.array([0.0, 0.0, 0.0])
 
         # self.Kp = [1, 1, 3,0]
         # self.Ki = [0, 0, 0,0]
@@ -103,6 +109,7 @@ class WayPointServer(Node):
 
         self.command_pub = self.create_publisher(SwiftMsgs, '/drone_command', 10)
         self.pid_error_pub = self.create_publisher(PIDError, '/pid_error', 10)
+        self.nigga = self.create_publisher(SwiftMsgs, '/nigga', 10)
         
 
 
@@ -156,11 +163,13 @@ class WayPointServer(Node):
         
 
         if self.dt >= 0.07 :  
+            #print("time:",self.dt)
             self.prev_drone_position = np.copy(self.drone_position)
 
-            self.drone_position[0] = msg.poses[0].position.x 
-            self.drone_position[1] = msg.poses[0].position.y 
-            self.drone_position[2] = msg.poses[0].position.z 
+            self.drone_position[0] = float(msg.poses[0].position.x) 
+            self.drone_position[1] = float(msg.poses[0].position.y) 
+            self.drone_position[2] = float(msg.poses[0].position.z)
+            #print("tptyugvhujvhubjhubj hb:",type(self.drone_position))
             self.prev_v= self.curr_v
             self.curr_v = (self.drone_position - self.prev_drone_position) *(1/self.dt)
 
@@ -180,9 +189,9 @@ class WayPointServer(Node):
             #self.vel_pub.publish(self.vel)
 
 
-            
-            self.updateController()
-            self.compute()
+            if self.setpoint !=0 : 
+                self.updateController()
+                self.compute()
 
         else : 
             self.current_time = self.prev_time
@@ -217,21 +226,39 @@ class WayPointServer(Node):
         self.roll_deg = math.degrees(roll)
         self.pitch_deg = math.degrees(pitch)
         self.yaw_deg = math.degrees(yaw)
-        self.drone_position[3] = self.yaw_deg	
+        #self.drone_position[3] = self.yaw_deg	
 
     def updateController(self):
-        #self.new_drone_position = self.drone_position
         self.error_prev=self.error
-        self.error=(self.setpoint - self.drone_position) #* np.array([-1, 1, 1])
-        self.errsum+=self.error * self.dt
+
+    #     if np.array_equal(self.setpoint, np.array([2, 2, 20])):
+    # # Code to execute if setpoint matches [2, 2, 20]
+    #         self.error=(self.setpoint - self.drone_position) +np.array([0,0,0.6])
+    #         print("self.setpoint",self.setpoint)
+  
+        self.error = np.array([
+        float(self.setpoint.position.x)- self.drone_position[0],
+        float(self.setpoint.position.y) - self.drone_position[1],
+        float(self.setpoint.position.z )- self.drone_position[2] + 0.6
+    ])
+        # print("day setpoint : ",np.array([float(self.setpoint.position.x),float(self.setpoint.position.y ),float(self.setpoint.position.z )]))
+
+        
+
+
+
+        self.errsum+=100*self.error * self.dt*2**(-(self.error/1)**10)
+
 
 
         self.prev_vel_error = self.vel_error
-        self.vel_error = (self.vel_setpoint - self.curr_v) * np.array([1, -1, -1,1])
+        self.vel_error = (self.vel_setpoint - self.curr_v) * np.array([1, -1, -1])
         self.vel_errsum += self.vel_error*self.dt
         # print("update for this pid iteration")
 
     def compute(self, kp=-8, ki=0, kd=0):
+
+
         
         K_1 = np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T
 
@@ -240,14 +267,17 @@ class WayPointServer(Node):
         z = (self.error - self.error_prev) / self.dt 
 
         error_vector = (np.array([error, sum_error, z])).T
-        print("setpoint",self.setpoint)
+        
 
-        print("error pos vector :", error_vector)
+        #print("error pos vector :", error_vector)
 
 
         rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
 
         self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2)])
+
+        #print("vel_setpoitn: ", self.vel_setpoint[2])
+
 
 
 
@@ -297,9 +327,73 @@ class WayPointServer(Node):
 
         self.command_pub.publish(msg)
 
+        # #K_1 = np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T
 
+        # error = self.error  # replace with actual value
+        # sum_error = (self.errsum)   # replace with actual value
+        # z = (self.error - self.error_prev) / self.dt 
+
+        # error_vector = (np.array([error, sum_error, z])).T
+        # print("setpoint",self.setpoint)
+
+        # print("error pos vector :", error_vector)
+
+
+        # #rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
+
+        # self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2),0])
+        # print("vel_setpoint: ", self.vel_setpoint)
+
+
+
+        # vel_K = np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T
+        
+        # # print("K")
+        # # print(K)
+
+        # # Define the error, sum_error, and z
+        # vel_error = self.vel_error  # replace with actual value
+        # vel_sum_error = self.vel_errsum  # replace with actual value
+        # vel_z = (self.vel_error - self.prev_vel_error) / self.dt # replace with actual value
+
+        # #Vel error
+
+
+        # # Create the vector [error, sum_error, z]
+        # vel_error_vector = (np.array([vel_error, vel_sum_error, vel_z])).T
+        # #print("E")
+        # #print("error vector ===",vel_error_vector)
+
+        # # Perform the matrix multiplication
+        # # result = np.dot(K, error_vector)
+        # result = np.sum(vel_K * vel_error_vector, axis=1)
+
+        # # Add the constant vector [1500, 1500, 1500]
+        # constant_vector = np.array([1500, 1500, 1532,0])
+
+        # result_with_offset = result + constant_vector
+        # #print("resiltndjndjn",result_with_offset)
+
+        # # Set the roll, pitch, throttle values and apply limits
+
+        # rpt = np.clip(result_with_offset, 1000, 2000)
+        # # print("rpt",rpt)
+        # # print(rpt)
+
+        # msg = SwiftMsgs()
+
+        # msg.rc_roll =int(rpt[0])#rpt_pos[0])
+        # msg.rc_pitch =int(rpt[1])#+rpt_pos[1])
+        # msg.rc_throttle =int(rpt[2])#+rpt_pos[2]) 
+        # msg.rc_yaw = 1500
+
+        # # print("throttle :" ,msg.rc_throttle )
+        # #print(rpt)
+
+        # self.command_pub.publish(msg)
+
+    
     def pid(self):
-
         #write your PID algorithm here. This time write equations for throttle, pitch, roll and yaw. 
         #Follow the steps from task 1b.
 
@@ -326,11 +420,11 @@ class WayPointServer(Node):
 
 
 
+        pass
 
-
- 
-        self.command_pub.publish(self.cmd)
-        self.pid_error_pub.publish(self.pid_error)
+        
+        # self.command_pub.publish(self.cmd)
+        # self.pid_error_pub.publish(self.pid_error)
 
     def execute_callback(self, goal_handle):
 
@@ -350,7 +444,7 @@ class WayPointServer(Node):
         #--------The script given below checks whether you are hovering at each of the waypoints(goals) for max of 3s---------#
         # This will help you to analyse the drone behaviour and help you to tune the PID better.
         feedback_msg = NavToWaypoint.Feedback()
-        feedback_msg.current_waypoint.pose= self.setpoint
+        #feedback_msg.current_waypoint.pose= self.setpoint
         while True:
             feedback_msg.current_waypoint.pose.position.x = self.drone_position[0]
             feedback_msg.current_waypoint.pose.position.y = self.drone_position[1]
@@ -363,17 +457,21 @@ class WayPointServer(Node):
             #You can use greater values initially and then move towards the value '0.4'. This will help you to check whether your waypoint navigation is working properly. 
 
             if not drone_is_in_sphere and self.point_in_sphere_start_time is None:
+                        print("Timeout",self.dtime)
                         pass
             
             elif drone_is_in_sphere and self.point_in_sphere_start_time is None:
+                        print("Time_start",self.dtime)
                         self.point_in_sphere_start_time = self.dtime
                         self.get_logger().info('Drone in sphere for 1st time')                        #you can choose to comment this out to get a better look at other logs
 
             elif drone_is_in_sphere and self.point_in_sphere_start_time is not None:
+                        print("cont",self.dtime,"    ",self.point_in_sphere_start_time)
                         self.time_inside_sphere = self.dtime - self.point_in_sphere_start_time
                         self.get_logger().info('Drone in sphere')                                     #you can choose to comment this out to get a better look at other logs
                              
             elif not drone_is_in_sphere and self.point_in_sphere_start_time is not None:
+                        print("reset",self.dtime)
                         self.get_logger().info('Drone out of sphere')                                 #you can choose to comment this out to get a better look at other logs
                         self.point_in_sphere_start_time = None
 
@@ -418,4 +516,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
