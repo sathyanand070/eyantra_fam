@@ -58,6 +58,8 @@ class Swift_Pico(Node):
 
         #-----------------------Add other required variables for pid here ----------------------------------------------
 
+
+        self.start_time = time.time()
         self.error = np.array([0.0, 0.0, 0.0])
         self.error_prev = np.array([0.0, 0.0, 0.0])
         self.errsum = np.array([0.0, 0.0, 0.0])
@@ -80,9 +82,9 @@ class Swift_Pico(Node):
         # self.s = [[2, -2, 27],[-2, -2, 27],[-2,2,27],[1, 1, 27]]
         # self.i=1
 
-        self.Kp_d = [0, 0, 0]
-        self.Ki_d = [0, 0, 0]
-        self.Kd_d = [0, 0, 0]
+        self.Kp_1 = [0, 0, 0]
+        self.Ki_1 = [0, 0, 0]
+        self.Kd_1 = [0, 0, 0]
 
         self.file_path = "debug.txt"
         # file_path_pos = "~/debug_pos.txt"
@@ -249,12 +251,15 @@ class Swift_Pico(Node):
     def whycon_callback(self, msg):
         self.prev_time = self.current_time
         self.current_time = time.time()
+        self.t=self.current_time-self.start_time
         self.dt = self.current_time - self.prev_time
-        # if self.t>self.t_nig:
-        
-        #     self.setpoint=self.s[self.i]
-        #     self.t_nig += 30
-        #     self.i+=1
+        i=0
+        if self.t>self.t_nig:
+            if i>len(self.s):
+                i=0
+            self.setpoint=self.s[self.i]
+            self.t_nig += 30
+            self.i+=1
 
         if self.dt >= 0.07 :  
             self.prev_drone_position = np.copy(self.drone_position)
