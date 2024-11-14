@@ -35,6 +35,7 @@ class WayPointServer(Node):
         self.max_time_inside_sphere = 0
         self.point_in_sphere_start_time = None
         self.duration = 0
+        self.real_time=0
 
 
         self.drone_position =np.array([0.0, 0.0, 0.0])
@@ -457,22 +458,26 @@ class WayPointServer(Node):
             #You can use greater values initially and then move towards the value '0.4'. This will help you to check whether your waypoint navigation is working properly. 
 
             if not drone_is_in_sphere and self.point_in_sphere_start_time is None:
-                        print("Timeout",self.dtime)
+                        # print("Timeout",self.dtime)
                         pass
             
             elif drone_is_in_sphere and self.point_in_sphere_start_time is None:
-                        print("Time_start",self.dtime)
+                        # print("Time_start",self.dtime)
                         self.point_in_sphere_start_time = self.dtime
-                        self.get_logger().info('Drone in sphere for 1st time')                        #you can choose to comment this out to get a better look at other logs
+                        self.real_time=time.time()
+                        print("start:",self.real_time)
+                        # self.get_logger().info('Drone in sphere for 1st time')                        #you can choose to comment this out to get a better look at other logs
 
             elif drone_is_in_sphere and self.point_in_sphere_start_time is not None:
-                        print("cont",self.dtime,"    ",self.point_in_sphere_start_time)
+                        # print("cont",self.dtime,"    ",self.point_in_sphere_start_time)
                         self.time_inside_sphere = self.dtime - self.point_in_sphere_start_time
-                        self.get_logger().info('Drone in sphere')                                     #you can choose to comment this out to get a better look at other logs
+                        # self.get_logger().info('Drone in sphere')                                     #you can choose to comment this out to get a better look at other logs
                              
             elif not drone_is_in_sphere and self.point_in_sphere_start_time is not None:
                         print("reset",self.dtime)
-                        self.get_logger().info('Drone out of sphere')                                 #you can choose to comment this out to get a better look at other logs
+                        print("end:",self.real_time)
+                        print("drone has been for:",time.time()-self.real_time)
+                        # self.get_logger().info('Drone out of sphere')                                 #you can choose to comment this out to get a better look at other logs
                         self.point_in_sphere_start_time = None
 
             if self.time_inside_sphere > self.max_time_inside_sphere:
