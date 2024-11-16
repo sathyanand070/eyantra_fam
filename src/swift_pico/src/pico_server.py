@@ -471,6 +471,8 @@ class WayPointServer(Node):
             elif drone_is_in_sphere and self.point_in_sphere_start_time is not None:
                         # print("cont",self.dtime,"    ",self.point_in_sphere_start_time)
                         self.time_inside_sphere = self.dtime - self.point_in_sphere_start_time
+                        if time.time()-self.real_time>3:
+                             break
                         # self.get_logger().info('Drone in sphere')                                     #you can choose to comment this out to get a better look at other logs
                              
             elif not drone_is_in_sphere and self.point_in_sphere_start_time is not None:
@@ -491,8 +493,8 @@ class WayPointServer(Node):
 
         #create a NavToWaypoint result object. Refer to Writing an action server and client (Python) in ROS 2 tutorials
         result = NavToWaypoint.Result()
-        goal_handle.set_result(result)
         result.hov_time = self.dtime - self.duration #this is the total time taken by the drone in trying to stabilize at a point
+        print(self.dtime - self.duration)
         return result
 
     def is_drone_in_sphere(self, drone_pos, sphere_center, radius):
