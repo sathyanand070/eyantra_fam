@@ -68,10 +68,10 @@ class WayPointServer(Node):
 
         self.Kp = [14, 14, 15]
         self.Ki = [0, 0, 0]
-        self.Kd = [0, 0, 0]
+        self.Kd = [0, 0, 0.7]
 
 
-        self.Kp_1 = [0, 0, 0]
+        self.Kp_1 = [0, 0, -30]
         self.Ki_1 = [0, 0, 0]
         self.Kd_1 = [0, 0, 0]
 
@@ -97,6 +97,13 @@ class WayPointServer(Node):
 
         self.current_time = time.time()
         self.prev_time = time.time()
+
+        self.file_path = "debug.txt"
+        # file_path_pos = "~/debug_pos.txt"
+
+        with open(self.file_path, "w") as file:
+            file.write("rpt                     vel_setpoint                    vel                   error\n") 
+
 
 
         
@@ -325,6 +332,14 @@ class WayPointServer(Node):
 
         # print("throttle :" ,msg.rc_throttle )
         #print(rpt)
+
+        txt=str(rpt)+'\t'+str(self.vel_setpoint)+'\t'+str(self.curr_v)+'\t'+str(self.error)+'\n'
+
+
+        with open(self.file_path, "a") as file:
+            file.write(txt) 
+
+
 
         self.command_pub.publish(msg)
 
