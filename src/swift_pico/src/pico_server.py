@@ -66,14 +66,14 @@ class WayPointServer(Node):
         #initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
         #after tuning and computing corresponding PID parameters, change the parameters
 
-        self.Kp = [14, 14, 15]
+        self.Kp = [12, 12,15]
         self.Ki = [0, 0, 0]
-        self.Kd = [0, 0, 0.7]
+        self.Kd = [0, 0, 0.017]
 
 
-        self.Kp_1 = [0, 0, -30]
+        self.Kp_1 = [-9, 5, 10]
         self.Ki_1 = [0, 0, 0]
-        self.Kd_1 = [0, 0, 0]
+        self.Kd_1 = [-10, 10, 16]
 
         #-----------------------Add other required variables for pid here ----------------------------------------------
 
@@ -268,7 +268,7 @@ class WayPointServer(Node):
 
 
         
-        K_1 = np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T
+        K_1 = -(np.array([self.Kp_1, self.Ki_1, self.Kd_1]).T)
 
         error = self.error  # replace with actual value
         sum_error = (self.errsum)   # replace with actual value
@@ -278,11 +278,11 @@ class WayPointServer(Node):
         
 
         #print("error pos vector :", error_vector)
+        constant_vector = np.array([1500, 1500, 1532])
 
+        rpt_pos = constant_vector + np.sum(K_1 * error_vector, axis=1) #from pos correction
 
-        rpt_pos = np.sum(K_1 * error_vector, axis=1) #from pos correction
-
-        self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2)])
+        # self.vel_setpoint=np.array([error[0]*2**(-0.1/error[0]**2),error[1]*2**(-0.1/error[1]**2),0.4*error[2]*2**(-1/(error[2]/1)**2)])
 
         #print("vel_setpoitn: ", self.vel_setpoint[2])
 
@@ -312,7 +312,6 @@ class WayPointServer(Node):
         result = np.sum(vel_K * vel_error_vector, axis=1)
 
         # Add the constant vector [1500, 1500, 1500]
-        constant_vector = np.array([1500, 1500, 1532])
 
         result_with_offset = result + constant_vector
         #print("resiltndjndjn",result_with_offset)
@@ -324,16 +323,24 @@ class WayPointServer(Node):
         # print(rpt)
 
         msg = SwiftMsgs()
-
-        msg.rc_roll =int(rpt[0]+rpt_pos[0])
-        msg.rc_pitch =int(rpt[1]+rpt_pos[1])
-        msg.rc_throttle =int(rpt[2]+rpt_pos[2]) 
-        msg.rc_yaw = 1500
-
+        if np.linalg.norm(error)>0.4:
+            msg.rc_roll =int(rpt_pos[0])
+            msg.rc_pitch =int(rpt_pos[1])
+            msg.rc_throttle =int(rpt_pos[2]) 
+            msg.rc_yaw = 1500
+            txt=str(rpt_pos)+'\t'+str(self.vel_setpoint)+'\t'+str(self.curr_v)+'\t'+str(self.error)+'\n'
+        else:
+            print("vel mode")
+            msg.rc_roll =int(rpt[0])
+            msg.rc_pitch =int(rpt[1])
+            msg.rc_throttle =int(rpt[2]) 
+            msg.rc_yaw = 1500
+            txt=str(rpt)+'\t'+str(self.vel_setpoint)+'\t'+str(self.curr_v)+'\t'+str(self.error)+'\n'
+            
         # print("throttle :" ,msg.rc_throttle )
         #print(rpt)
 
-        txt=str(rpt)+'\t'+str(self.vel_setpoint)+'\t'+str(self.curr_v)+'\t'+str(self.error)+'\n'
+        
 
 
         with open(self.file_path, "a") as file:
@@ -487,6 +494,7 @@ class WayPointServer(Node):
                         # print("cont",self.dtime,"    ",self.point_in_sphere_start_time)
                         self.time_inside_sphere = self.dtime - self.point_in_sphere_start_time
                         if time.time()-self.real_time>3:
+                             print("r3kste")
                              break
                         # self.get_logger().info('Drone in sphere')                                     #you can choose to comment this out to get a better look at other logs
                              
@@ -501,6 +509,7 @@ class WayPointServer(Node):
                  self.max_time_inside_sphere = self.time_inside_sphere
 
             if self.max_time_inside_sphere >= 3:
+                 print("nah I would pass",self.max_time_inside_sphere,"\nFaker:",time.time()-self.real_time)
                  break
                         
 
